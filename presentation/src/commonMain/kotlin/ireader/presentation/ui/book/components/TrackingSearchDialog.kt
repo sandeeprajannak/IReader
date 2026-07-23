@@ -59,7 +59,8 @@ fun TrackingSearchDialog(
     onSearch: (String) -> Unit,
     onSelect: (TrackSearchResult) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCreateNew: (() -> Unit)? = null
 ) {
     val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
     var searchQuery by remember { mutableStateOf(query) }
@@ -140,17 +141,24 @@ fun TrackingSearchDialog(
 
                 // Results
                 if (results.isEmpty() && !isSearching) {
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        contentAlignment = Alignment.Center
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
                         Text(
                             text = "Search for a manga or light novel to track",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (onCreateNew != null && searchQuery.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = onCreateNew) {
+                                Text("Not listed? Add to MyNovelList")
+                            }
+                        }
                     }
                 } else {
                     LazyColumn(

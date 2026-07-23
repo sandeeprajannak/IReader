@@ -32,6 +32,7 @@ interface TrackingRepository {
     // Search and linking
     suspend fun searchTracker(serviceId: Int, query: String): List<TrackSearchResult>
     suspend fun linkBook(bookId: Long, serviceId: Int, searchResult: TrackSearchResult): Boolean
+    suspend fun createAndBindBook(bookId: Long, serviceId: Int, sourceUrl: String, totalChapters: Int): Boolean
     suspend fun unlinkBook(bookId: Long, serviceId: Int): Boolean
     
     // Synchronization

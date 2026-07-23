@@ -2673,6 +2673,48 @@ class BookDetailViewModel(
     }
     
     /**
+     * Create a brand-new MyNovelList entry directly from this book's own metadata
+     * (title, author, cover, genres, source URL, chapter count) when a search on
+     * MyNovelList doesn't find the novel there yet.
+     */
+    fun createOnMyNovelList() {
+        val bookId = param.bookId ?: return
+        val repository = trackingRepository ?: return
+        val currentBook = book ?: return
+
+        scope.launch {
+            try {
+                val sourceUrl = ireader.presentation.core.ensureAbsoluteUrlForWebView(currentBook.key, source)
+                val success = repository.createAndBindBook(
+                    bookId,
+                    ireader.domain.models.entities.TrackerService.MYNOVELLIST,
+                    sourceUrl,
+                    chapters.size
+                )
+
+                if (success) {
+                    val tracks = repository.getTracksByBook(bookId)
+                    tracks.find { it.siteId == ireader.domain.models.entities.TrackerService.MYNOVELLIST }?.let { track ->
+                        myNovelListTrack = track
+                        isMyNovelListTracked = true
+                        myNovelListStatus = track.status.name
+                        myNovelListProgress = track.lastRead.toInt()
+                        myNovelListScore = track.score
+                    }
+
+                    showTrackingSearchDialog = false
+                    emitEvent(BookDetailEvent.ShowSnackbar("Added to MyNovelList: ${currentBook.title}"))
+                } else {
+                    emitEvent(BookDetailEvent.ShowSnackbar("Failed to add to MyNovelList"))
+                }
+            } catch (e: Exception) {
+                Log.error(e, "Failed to create MyNovelList entry")
+                emitEvent(BookDetailEvent.ShowSnackbar("Failed to add: ${e.message}"))
+            }
+        }
+    }
+
+    /**
      * Link book to a search result from AniList (legacy compatibility)
      */
     fun linkToAniList(searchResult: ireader.domain.models.entities.TrackSearchResult) {

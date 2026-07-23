@@ -90,6 +90,14 @@ class TrackingUseCase(
     }
     
     /**
+     * Create a new entry on a tracking service directly from the book's own metadata
+     * (no prior search match required) and bind it
+     */
+    suspend fun createAndBindBook(bookId: Long, serviceId: Int, sourceUrl: String, totalChapters: Int): Boolean {
+        return trackingRepository.createAndBindBook(bookId, serviceId, sourceUrl, totalChapters)
+    }
+
+    /**
      * Unlink a book from a tracking service
      */
     suspend fun unlinkBook(bookId: Long, serviceId: Int): Boolean {

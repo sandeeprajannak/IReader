@@ -752,7 +752,10 @@ data class BookDetailScreenSpec constructor(
                 onQueryChange = { /* Query is managed by search button */ },
                 onSearch = { query -> vm.searchOnService(vm.currentSearchServiceId, query) },
                 onSelect = { result -> vm.linkToService(vm.currentSearchServiceId, result) },
-                onDismiss = { vm.showTrackingSearchDialog = false }
+                onDismiss = { vm.showTrackingSearchDialog = false },
+                onCreateNew = if (vm.currentSearchServiceId == ireader.domain.models.entities.TrackerService.MYNOVELLIST) {
+                    { vm.createOnMyNovelList() }
+                } else null
             )
         }
         
