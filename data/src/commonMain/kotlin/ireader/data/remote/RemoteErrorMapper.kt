@@ -49,21 +49,24 @@ object RemoteErrorMapper {
     private fun mapError(e: Exception): String {
         val message = e.message?.lowercase() ?: ""
         return when {
-            message.contains("maintenance") || message.contains("503") -> 
+            message.contains("maintenance") || message.contains("503") ->
                 "Service temporarily unavailable due to maintenance. Some features may be limited."
-            message.contains("cancelled") -> 
+            message.contains("cancelled") ->
                 "Request was cancelled. This is normal during service maintenance."
-            message.contains("network") || message.contains("unable to resolve host") -> 
+            message.contains("network") || message.contains("unable to resolve host") ->
                 "Network error. Please check your internet connection."
-            message.contains("timeout") -> 
+            message.contains("timeout") ->
                 "Request timed out. The service may be temporarily unavailable."
-            message.contains("unauthorized") || message.contains("401") -> 
+            message.contains("unauthorized") || message.contains("401") ->
                 "Authentication failed. Please sign in again."
-            message.contains("not found") || message.contains("404") -> 
+            message.contains("not found") || message.contains("404") ->
                 "Resource not found."
-            message.contains("502") || message.contains("bad gateway") -> 
+            message.contains("502") || message.contains("bad gateway") ->
                 "Service temporarily unavailable. Please try again later."
-            else -> "Service temporarily unavailable: ${e.message ?: "Unknown error"}"
+            // Repository code already threw a user-friendly message (e.g. email confirmation
+            // required) - pass it through instead of masking it as a generic outage.
+            !e.message.isNullOrBlank() -> e.message!!
+            else -> "Service temporarily unavailable: Unknown error"
         }
     }
 }
