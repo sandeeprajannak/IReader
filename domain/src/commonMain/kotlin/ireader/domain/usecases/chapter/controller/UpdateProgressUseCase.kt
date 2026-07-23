@@ -3,7 +3,12 @@ package ireader.domain.usecases.chapter.controller
 import ireader.core.log.Log
 import ireader.domain.data.repository.ChapterRepository
 import ireader.domain.data.repository.HistoryRepository
+import ireader.domain.data.repository.TrackingRepository
 import ireader.domain.models.entities.History
+import ireader.domain.models.entities.Track
+import ireader.domain.models.entities.TrackStatus
+import ireader.domain.models.entities.TrackUpdate
+import ireader.domain.models.entities.TrackerService
 import ireader.domain.preferences.prefs.UiPreferences
 import ireader.domain.utils.extensions.currentTimeToLong
 import kotlinx.coroutines.flow.Flow
@@ -47,7 +52,8 @@ interface UpdateProgressUseCase {
 class UpdateProgressUseCaseImpl(
     private val historyRepository: HistoryRepository,
     private val chapterRepository: ChapterRepository,
-    private val uiPreferences: UiPreferences
+    private val uiPreferences: UiPreferences,
+    private val trackingRepository: TrackingRepository? = null
 ) : UpdateProgressUseCase {
 
     companion object {
@@ -63,7 +69,7 @@ class UpdateProgressUseCaseImpl(
         val chapter = chapterRepository.findChapterById(chapterId) ?: return
         val existingHistory = historyRepository.findHistoryByChapterId(chapterId)
 
-        Log.debug { 
+        Log.debug {
             "$TAG: updateLastRead - chapterId=$chapterId, hasContent=${chapter.content.isNotEmpty()}, " +
             "contentSize=${chapter.content.size}"
         }
@@ -82,6 +88,28 @@ class UpdateProgressUseCaseImpl(
                 readDuration = existingHistory?.readDuration ?: 0
             )
         )
+
+        pushProgressToMyNovelList(bookId, chapter.number, chapter.sourceOrder, chapter.isRecognizedNumber)
+    }
+
+    private suspend fun pushProgressToMyNovelList(
+        bookId: Long,
+        chapterNumber: Float,
+        sourceOrder: Long,
+        isRecognizedNumber: Boolean
+    ) {
+        val repository = trackingRepository ?: return
+        try {
+            val track = repository.getTracksByBook(bookId).find { it.siteId == TrackerService.MYNOVELLIST } ?: return
+            val currentChapter = if (isRecognizedNumber) chapterNumber.toInt() else (sourceOrder + 1).toInt()
+            val totalChapters = chapterRepository.findChaptersByBookId(bookId).size
+            val update = buildMyNovelListProgressUpdate(track, currentChapter, totalChapters, currentTimeToLong())
+            if (update != null) {
+                repository.updateTrack(update)
+            }
+        } catch (e: Exception) {
+            Log.error(e, "$TAG: Failed to push reading progress to MyNovelList")
+        }
     }
 
     override suspend fun updateParagraphIndex(chapterId: Long, paragraphIndex: Int) {
@@ -108,4 +136,35 @@ class UpdateProgressUseCaseImpl(
         return historyRepository.subscribeHistoryByBookId(bookId)
             .map { history -> history?.chapterId }
     }
+}
+
+internal fun buildMyNovelListProgressUpdate(
+    track: Track,
+    currentChapter: Int,
+    totalChapters: Int,
+    nowEpochMillis: Long
+): TrackUpdate? {
+    val isCompleted = totalChapters > 0 && currentChapter >= totalChapters
+    val newStatus = when {
+        isCompleted -> TrackStatus.Completed
+        track.status == TrackStatus.Planned -> TrackStatus.Reading
+        else -> track.status
+    }
+    val newStartReadTime = if (track.startReadTime == 0L) nowEpochMillis else track.startReadTime
+    val newEndReadTime = if (isCompleted && track.endReadTime == 0L) nowEpochMillis else track.endReadTime
+    val newLastRead = maxOf(currentChapter.toFloat(), track.lastRead)
+
+    val unchanged = newStatus == track.status &&
+        newLastRead == track.lastRead &&
+        newStartReadTime == track.startReadTime &&
+        newEndReadTime == track.endReadTime
+    if (unchanged) return null
+
+    return TrackUpdate(
+        id = track.id,
+        lastRead = newLastRead,
+        status = newStatus,
+        startReadTime = newStartReadTime,
+        endReadTime = newEndReadTime
+    )
 }

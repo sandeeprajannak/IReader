@@ -64,7 +64,8 @@ val chapterModule = module {
         UpdateProgressUseCaseImpl(
             historyRepository = get(),
             chapterRepository = get(),
-            uiPreferences = get()
+            uiPreferences = get(),
+            trackingRepository = get()
         )
     }
     
