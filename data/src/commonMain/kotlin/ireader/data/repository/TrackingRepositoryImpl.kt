@@ -6,6 +6,7 @@ import ireader.data.tracking.kitsu.KitsuRepositoryImpl
 import ireader.data.tracking.mal.MyAnimeListRepositoryImpl
 import ireader.data.tracking.mangaupdates.MangaUpdatesRepositoryImpl
 import ireader.data.tracking.mynovellist.MyNovelListRepositoryImpl
+import ireader.domain.data.repository.BookRepository
 import ireader.domain.data.repository.TrackingRepository
 import ireader.domain.data.repository.TrackingStatistics
 import ireader.domain.models.entities.*
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class TrackingRepositoryImpl(
     private val handler: DatabaseHandler,
+    private val bookRepository: BookRepository,
     private val aniListRepository: AniListRepositoryImpl,
     private val malRepository: MyAnimeListRepositoryImpl? = null,
     private val kitsuRepository: KitsuRepositoryImpl? = null,
@@ -265,9 +267,10 @@ class TrackingRepositoryImpl(
             score = update.score ?: existingTrack.score,
             status = update.status ?: existingTrack.status,
             startReadTime = update.startReadTime ?: existingTrack.startReadTime,
-            endReadTime = update.endReadTime ?: existingTrack.endReadTime
+            endReadTime = update.endReadTime ?: existingTrack.endReadTime,
+            notes = update.notes ?: existingTrack.notes
         )
-        
+
         // Update in database
         handler.await {
             trackQueries.updateTrack(
@@ -339,7 +342,7 @@ class TrackingRepositoryImpl(
             TrackerService.MYANIMELIST -> malRepository?.bindBook(bookId, searchResult)
             TrackerService.KITSU -> kitsuRepository?.bindBook(bookId, searchResult)
             TrackerService.MANGAUPDATES -> mangaUpdatesRepository?.bindBook(bookId, searchResult)
-            TrackerService.MYNOVELLIST -> myNovelListRepository?.bindBook(bookId, searchResult)
+            TrackerService.MYNOVELLIST -> myNovelListRepository?.bindBook(bookId, searchResult, bookRepository.findBookById(bookId))
             else -> null
         }
         
@@ -349,6 +352,13 @@ class TrackingRepositoryImpl(
         } else false
     }
     
+    override suspend fun createAndBindBook(bookId: Long, serviceId: Int, sourceUrl: String, totalChapters: Int): Boolean {
+        if (serviceId != TrackerService.MYNOVELLIST) return false
+        val book = bookRepository.findBookById(bookId) ?: return false
+        val track = myNovelListRepository?.createAndBindBook(bookId, book, sourceUrl, totalChapters) ?: return false
+        return addTrack(track)
+    }
+
     override suspend fun unlinkBook(bookId: Long, serviceId: Int): Boolean {
         return removeTrack(bookId, serviceId)
     }

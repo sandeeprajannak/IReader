@@ -162,16 +162,10 @@ class MyNovelListApi(
         
         return try {
             // First, create or find the novel
-            val novelPayload = buildJsonObject {
-                put("title", track.title)
-                put("source_url", track.mediaUrl)
-                put("total_chapters", track.totalChapters)
-            }
-            
             val createResponse = httpClient.post("$baseUrl/api/$API_VERSION/novels") {
                 header(HttpHeaders.Authorization, "Bearer $key")
                 contentType(ContentType.Application.Json)
-                setBody(novelPayload.toString())
+                setBody(buildCreatePayload(track).toString())
             }
             
             if (!createResponse.status.isSuccess()) {
@@ -196,22 +190,10 @@ class MyNovelListApi(
         val key = apiKey ?: return false
         
         return try {
-            val payload = buildJsonObject {
-                put("status", track.status.toMyNovelListStatus())
-                put("current_chapter", track.lastRead.toInt())
-                put("score", (track.score * 10).toInt()) // Convert 0-10 to 0-100
-                if (track.startReadTime > 0) {
-                    put("started_at", epochToDateString(track.startReadTime))
-                }
-                if (track.endReadTime > 0) {
-                    put("completed_at", epochToDateString(track.endReadTime))
-                }
-            }
-            
             val response = httpClient.put("$baseUrl/api/$API_VERSION/novels/$novelId/progress") {
                 header(HttpHeaders.Authorization, "Bearer $key")
                 contentType(ContentType.Application.Json)
-                setBody(payload.toString())
+                setBody(buildProgressPayload(track).toString())
             }
             
             response.status.isSuccess()
@@ -340,16 +322,42 @@ class MyNovelListApi(
         }
     }
     
-    private fun epochToDateString(epochMillis: Long): String {
-        if (epochMillis == 0L) return ""
-        // Simple date conversion (YYYY-MM-DD format)
-        val days = epochMillis / (24 * 60 * 60 * 1000)
-        val year = 1970 + (days / 365).toInt()
-        val dayOfYear = (days % 365).toInt()
-        val month = (dayOfYear / 30) + 1
-        val day = (dayOfYear % 30) + 1
-        return "$year-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}"
+}
+
+internal fun buildCreatePayload(track: Track): JsonObject = buildJsonObject {
+    put("title", track.title)
+    put("source_url", track.mediaUrl)
+    put("total_chapters", track.totalChapters)
+    if (track.author.isNotBlank()) put("author", track.author)
+    if (track.coverUrl.isNotBlank()) put("cover_url", track.coverUrl)
+    if (track.genres.isNotEmpty()) {
+        put("tags", buildJsonArray { track.genres.forEach { add(it) } })
     }
+}
+
+internal fun buildProgressPayload(track: Track): JsonObject = buildJsonObject {
+    put("status", track.status.toMyNovelListStatus())
+    put("current_chapter", track.lastRead.toInt())
+    put("score", (track.score * 10).toInt()) // Convert 0-10 to 0-100
+    put("total_chapters", track.totalChapters)
+    if (track.notes.isNotBlank()) put("notes", track.notes)
+    if (track.startReadTime > 0) {
+        put("started_at", epochToDateString(track.startReadTime))
+    }
+    if (track.endReadTime > 0) {
+        put("completed_at", epochToDateString(track.endReadTime))
+    }
+}
+
+private fun epochToDateString(epochMillis: Long): String {
+    if (epochMillis == 0L) return ""
+    // Simple date conversion (YYYY-MM-DD format)
+    val days = epochMillis / (24 * 60 * 60 * 1000)
+    val year = 1970 + (days / 365).toInt()
+    val dayOfYear = (days % 365).toInt()
+    val month = (dayOfYear / 30) + 1
+    val day = (dayOfYear % 30) + 1
+    return "$year-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}"
 }
 
 /**

@@ -3,6 +3,7 @@ package ireader.data.tracking.mynovellist
 import io.ktor.client.HttpClient
 import ireader.core.log.Log
 import ireader.core.prefs.PreferenceStore
+import ireader.domain.models.entities.Book
 import ireader.domain.models.entities.Track
 import ireader.domain.models.entities.TrackSearchResult
 import ireader.domain.models.entities.TrackStatus
@@ -186,11 +187,11 @@ class MyNovelListRepositoryImpl(
     /**
      * Bind a book to MyNovelList entry, creating or updating as needed
      */
-    suspend fun bindBook(bookId: Long, searchResult: TrackSearchResult): Track? {
+    suspend fun bindBook(bookId: Long, searchResult: TrackSearchResult, book: Book? = null): Track? {
         return try {
             // Check if already in user's library
             val existing = findInLibrary(searchResult.title)
-            
+
             val track = Track(
                 mangaId = bookId,
                 siteId = TrackerService.MYNOVELLIST,
@@ -204,8 +205,8 @@ class MyNovelListRepositoryImpl(
                 status = existing?.status?.toTrackStatusFromMyNovelList() ?: TrackStatus.Planned,
                 startReadTime = 0,
                 endReadTime = 0
-            )
-            
+            ).applyBookMetadata(book)
+
             if (existing == null) {
                 // Add to library
                 val entry = api.addToLibrary(track)
@@ -221,6 +222,21 @@ class MyNovelListRepositoryImpl(
         }
     }
     
+    /**
+     * Create a brand-new novel entry on MyNovelList directly from the book's own metadata
+     * and bind it to the user's library, without requiring a prior search match.
+     */
+    suspend fun createAndBindBook(bookId: Long, book: Book, sourceUrl: String, totalChapters: Int): Track? {
+        return try {
+            val track = buildTrackFromBook(bookId, book, sourceUrl, totalChapters)
+            val entry = api.addToLibrary(track) ?: return null
+            track.copy(entryId = entry.id.hashCode().toLong())
+        } catch (e: Exception) {
+            Log.error(e, "Failed to create and bind book to MyNovelList")
+            null
+        }
+    }
+
     /**
      * Sync a track with MyNovelList (pull remote data)
      */
@@ -250,4 +266,26 @@ class MyNovelListRepositoryImpl(
         val regex = Regex("/novel/([a-zA-Z0-9-]+)")
         return regex.find(url)?.groupValues?.getOrNull(1)
     }
+}
+
+internal fun Track.applyBookMetadata(book: Book?): Track {
+    if (book == null) return this
+    val cover = book.customCover.takeIf { it.isNotBlank() } ?: book.cover
+    return copy(
+        author = book.author,
+        coverUrl = cover,
+        genres = book.genres
+    )
+}
+
+internal fun buildTrackFromBook(bookId: Long, book: Book, sourceUrl: String, totalChapters: Int): Track {
+    return Track(
+        mangaId = bookId,
+        siteId = TrackerService.MYNOVELLIST,
+        entryId = 0,
+        title = book.title,
+        mediaUrl = sourceUrl,
+        totalChapters = totalChapters,
+        status = TrackStatus.Planned
+    ).applyBookMetadata(book)
 }

@@ -15,7 +15,11 @@ data class Track(
     val score: Float = 0f,
     val status: TrackStatus = TrackStatus.Reading,
     val startReadTime: Long = 0,
-    val endReadTime: Long = 0
+    val endReadTime: Long = 0,
+    val author: String = "",
+    val coverUrl: String = "",
+    val genres: List<String> = emptyList(),
+    val notes: String = ""
 )
 data class TrackState(
     val lastChapterRead: Float,
@@ -36,7 +40,8 @@ data class TrackUpdate(
     val score: Float? = null,
     val status: TrackStatus? = null,
     val startReadTime: Long? = null,
-    val endReadTime: Long? = null
+    val endReadTime: Long? = null,
+    val notes: String? = null
 )
 data class TrackSearchResult(
     val mediaId: Long,

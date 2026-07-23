@@ -58,6 +58,7 @@ val trackingModule = module {
     single<TrackingRepository> {
         TrackingRepositoryImpl(
             handler = get(),
+            bookRepository = get(),
             aniListRepository = get(),
             malRepository = get(),
             kitsuRepository = get(),
