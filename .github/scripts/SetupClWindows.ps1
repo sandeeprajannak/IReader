@@ -3,7 +3,8 @@ if ($(Split-Path -Path (Get-Location) -Leaf) -eq "scripts" ) {
 }
 
 Write-Output "Writing ci gradle.properties"
-if (!(Test-Path -Path ".gradle")) {
-    New-Item -ItemType Directory -Force -Path ".gradle" -ErrorAction SilentlyContinue
+$GradleUserHomeDir = if ($env:GRADLE_USER_HOME) { $env:GRADLE_USER_HOME } else { Join-Path $env:USERPROFILE ".gradle" }
+if (!(Test-Path -Path $GradleUserHomeDir)) {
+    New-Item -ItemType Directory -Force -Path $GradleUserHomeDir -ErrorAction SilentlyContinue
 }
-Copy-Item ".github/runner-files/ci-gradle.properties" ".gradle/gradle.properties" -Force
+Copy-Item ".github/runner-files/ci-gradle.properties" (Join-Path $GradleUserHomeDir "gradle.properties") -Force
