@@ -806,18 +806,18 @@ CREATE POLICY "Admins can update reports" ON public.character_art_reports FOR UP
 -- Function: Update updated_at timestamp
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- ----------------------------------------------------------------------------
 -- Function: Generate default username
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION generate_default_username()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.username IS NULL OR LENGTH(TRIM(NEW.username)) = 0 THEN
         IF NEW.email IS NOT NULL THEN
@@ -828,20 +828,20 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- ----------------------------------------------------------------------------
 -- Function: Award badge to user
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION award_badge(p_user_id UUID, p_badge_id TEXT, p_metadata JSONB DEFAULT NULL)
-RETURNS BOOLEAN AS $
+RETURNS BOOLEAN AS $$
 BEGIN
     INSERT INTO public.user_badges (user_id, badge_id, metadata)
     VALUES (p_user_id, p_badge_id, p_metadata)
     ON CONFLICT (user_id, badge_id) DO NOTHING;
     RETURN FOUND;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Get user badges
@@ -851,7 +851,7 @@ RETURNS TABLE (
     badge_id TEXT, badge_name TEXT, badge_description TEXT, badge_icon TEXT,
     badge_category TEXT, badge_rarity TEXT, badge_image_url TEXT, badge_type TEXT,
     is_primary BOOLEAN, is_featured BOOLEAN, earned_at TIMESTAMP WITH TIME ZONE, metadata JSONB
-) AS $
+) AS $$
 BEGIN
     RETURN QUERY
     SELECT b.id, b.name, b.description, b.icon, b.category, b.rarity, b.image_url, b.type,
@@ -861,7 +861,7 @@ BEGIN
     WHERE ub.user_id = p_user_id
     ORDER BY ub.earned_at DESC;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Get user badges with details
@@ -872,7 +872,7 @@ RETURNS TABLE (
     badge_category TEXT, badge_rarity TEXT, badge_type TEXT, badge_price DECIMAL(10, 2),
     badge_image_url TEXT, earned_at TIMESTAMP WITH TIME ZONE, is_primary BOOLEAN,
     is_featured BOOLEAN, metadata JSONB
-) AS $
+) AS $$
 BEGIN
     RETURN QUERY
     SELECT b.id, b.name, b.description, b.icon, b.category, b.rarity, b.type, b.price,
@@ -882,13 +882,13 @@ BEGIN
     WHERE ub.user_id = p_user_id
     ORDER BY ub.earned_at DESC;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Grant badge to user (admin)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION grant_badge_to_user(p_user_id UUID, p_badge_id TEXT)
-RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE result JSON;
 BEGIN
     INSERT INTO public.user_badges (user_id, badge_id, earned_at)
@@ -902,7 +902,7 @@ BEGIN
     END IF;
     RETURN result;
 END;
-$;
+$$;
 
 GRANT EXECUTE ON FUNCTION grant_badge_to_user(UUID, TEXT) TO authenticated;
 
@@ -910,7 +910,7 @@ GRANT EXECUTE ON FUNCTION grant_badge_to_user(UUID, TEXT) TO authenticated;
 -- Function: Check and award achievement badge
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION check_and_award_achievement_badge(p_user_id UUID, p_badge_id TEXT)
-RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE v_already_has_badge BOOLEAN;
 BEGIN
     SELECT EXISTS(SELECT 1 FROM public.user_badges WHERE user_id = p_user_id AND badge_id = p_badge_id) INTO v_already_has_badge;
@@ -921,7 +921,7 @@ BEGIN
     END IF;
     RETURN FALSE;
 END;
-$;
+$$;
 
 GRANT EXECUTE ON FUNCTION check_and_award_achievement_badge(UUID, TEXT) TO authenticated;
 
@@ -930,7 +930,7 @@ GRANT EXECUTE ON FUNCTION check_and_award_achievement_badge(UUID, TEXT) TO authe
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION get_user_statistics(p_user_id UUID)
 RETURNS TABLE (total_books BIGINT, favorite_books BIGINT, total_chapters BIGINT,
-               read_chapters BIGINT, bookmarked_chapters BIGINT, books_in_progress BIGINT) AS $
+               read_chapters BIGINT, bookmarked_chapters BIGINT, books_in_progress BIGINT) AS $$
 BEGIN
     RETURN QUERY
     SELECT COUNT(DISTINCT sb.book_id), 0::BIGINT, 0::BIGINT, 0::BIGINT, 0::BIGINT, COUNT(DISTINCT rp.book_id)
@@ -939,7 +939,7 @@ BEGIN
     LEFT JOIN public.reading_progress rp ON u.id = rp.user_id
     WHERE u.id = p_user_id GROUP BY u.id;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Get popular books
@@ -965,7 +965,7 @@ GRANT EXECUTE ON FUNCTION get_popular_books(INTEGER) TO anon;
 -- Function: Get user leaderboard rank
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION get_user_leaderboard_rank(p_user_id UUID)
-RETURNS TABLE (rank BIGINT, total_users BIGINT, percentile NUMERIC) AS $
+RETURNS TABLE (rank BIGINT, total_users BIGINT, percentile NUMERIC) AS $$
 BEGIN
     RETURN QUERY
     WITH user_rank AS (
@@ -976,7 +976,7 @@ BEGIN
     SELECT ur.user_rank, tc.total, ROUND((ur.user_rank::NUMERIC / tc.total::NUMERIC) * 100, 2)
     FROM user_rank ur, total_count tc WHERE ur.user_id = p_user_id;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Get top leaderboard users
@@ -984,7 +984,7 @@ $ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION get_top_leaderboard_users(p_limit INTEGER DEFAULT 10)
 RETURNS TABLE (rank BIGINT, user_id UUID, username TEXT, total_reading_time_minutes BIGINT,
                total_chapters_read INTEGER, books_completed INTEGER, reading_streak INTEGER,
-               has_badge BOOLEAN, badge_type TEXT) AS $
+               has_badge BOOLEAN, badge_type TEXT) AS $$
 BEGIN
     RETURN QUERY
     SELECT ROW_NUMBER() OVER (ORDER BY l.total_reading_time_minutes DESC), l.user_id, l.username,
@@ -992,14 +992,14 @@ BEGIN
            l.has_badge, l.badge_type
     FROM public.leaderboard l ORDER BY l.total_reading_time_minutes DESC LIMIT p_limit;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Get donation leaderboard
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION get_donation_leaderboard(p_limit INTEGER DEFAULT 100, p_offset INTEGER DEFAULT 0)
 RETURNS TABLE (user_id TEXT, username TEXT, total_donation_amount DECIMAL, badge_count INTEGER,
-               highest_badge_rarity TEXT, avatar_url TEXT) AS $
+               highest_badge_rarity TEXT, avatar_url TEXT) AS $$
 BEGIN
     RETURN QUERY
     SELECT u.id::TEXT, COALESCE(u.username, split_part(u.email, '@', 1)),
@@ -1015,7 +1015,7 @@ BEGIN
     HAVING COALESCE(SUM(b.price), 0) > 0
     ORDER BY total_donation_amount DESC LIMIT p_limit OFFSET p_offset;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION get_donation_leaderboard(INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_donation_leaderboard(INTEGER, INTEGER) TO anon;
@@ -1025,7 +1025,7 @@ GRANT EXECUTE ON FUNCTION get_donation_leaderboard(INTEGER, INTEGER) TO anon;
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION get_user_donation_rank(p_user_id TEXT)
 RETURNS TABLE (user_id TEXT, username TEXT, total_donation_amount DECIMAL, badge_count INTEGER,
-               highest_badge_rarity TEXT, avatar_url TEXT) AS $
+               highest_badge_rarity TEXT, avatar_url TEXT) AS $$
 BEGIN
     RETURN QUERY
     SELECT u.id::TEXT, COALESCE(u.username, split_part(u.email, '@', 1)),
@@ -1040,7 +1040,7 @@ BEGIN
     WHERE u.id::TEXT = p_user_id
     GROUP BY u.id, u.username, u.email;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION get_user_donation_rank(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_user_donation_rank(TEXT) TO anon;
@@ -1050,7 +1050,7 @@ GRANT EXECUTE ON FUNCTION get_user_donation_rank(TEXT) TO anon;
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION get_user_donation_badges(p_user_id TEXT)
 RETURNS TABLE (badge_id TEXT, badge_name TEXT, badge_icon TEXT, badge_rarity TEXT,
-               badge_price DECIMAL, earned_at TEXT) AS $
+               badge_price DECIMAL, earned_at TEXT) AS $$
 BEGIN
     RETURN QUERY
     SELECT b.id, b.name, b.icon, b.rarity, b.price, ub.earned_at::TEXT
@@ -1059,7 +1059,7 @@ BEGIN
     WHERE ub.user_id::TEXT = p_user_id AND b.type = 'PURCHASABLE' AND b.price IS NOT NULL
     ORDER BY b.price DESC;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION get_user_donation_badges(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_user_donation_badges(TEXT) TO anon;
@@ -1069,7 +1069,7 @@ GRANT EXECUTE ON FUNCTION get_user_donation_badges(TEXT) TO anon;
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION get_daily_quote()
 RETURNS TABLE (quote_id UUID, quote_text TEXT, book_title TEXT, author TEXT,
-               chapter_title TEXT, likes_count INTEGER, submitter_username TEXT, submitter_id UUID) AS $
+               chapter_title TEXT, likes_count INTEGER, submitter_username TEXT, submitter_id UUID) AS $$
 DECLARE
     today DATE := CURRENT_DATE;
     selected_quote_id UUID;
@@ -1091,13 +1091,13 @@ BEGIN
     FROM public.community_quotes cq LEFT JOIN public.users u ON cq.user_id = u.id
     WHERE cq.id = selected_quote_id;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Toggle quote like
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION toggle_quote_like(p_quote_id UUID)
-RETURNS BOOLEAN AS $
+RETURNS BOOLEAN AS $$
 DECLARE v_user_id UUID := auth.uid(); v_liked BOOLEAN;
 BEGIN
     SELECT EXISTS(SELECT 1 FROM public.quote_likes WHERE user_id = v_user_id AND quote_id = p_quote_id) INTO v_liked;
@@ -1112,19 +1112,19 @@ BEGIN
         RETURN TRUE;
     END IF;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Is user admin
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION is_user_admin(p_user_id UUID)
-RETURNS BOOLEAN AS $
+RETURNS BOOLEAN AS $$
 DECLARE v_is_admin BOOLEAN := FALSE;
 BEGIN
     SELECT COALESCE(is_admin, FALSE) INTO v_is_admin FROM public.users WHERE id = p_user_id;
     RETURN COALESCE(v_is_admin, FALSE);
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION is_user_admin(UUID) TO authenticated;
 
@@ -1132,7 +1132,7 @@ GRANT EXECUTE ON FUNCTION is_user_admin(UUID) TO authenticated;
 -- Function: Approve quote (admin only)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION approve_quote(p_quote_id UUID, p_featured BOOLEAN DEFAULT FALSE)
-RETURNS BOOLEAN AS $
+RETURNS BOOLEAN AS $$
 DECLARE v_admin_id UUID := auth.uid();
 BEGIN
     IF NOT is_user_admin(v_admin_id) THEN RAISE EXCEPTION 'Only admins can approve quotes'; END IF;
@@ -1140,26 +1140,26 @@ BEGIN
     WHERE id = p_quote_id;
     RETURN FOUND;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Reject quote (admin only)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION reject_quote(p_quote_id UUID)
-RETURNS BOOLEAN AS $
+RETURNS BOOLEAN AS $$
 DECLARE v_admin_id UUID := auth.uid();
 BEGIN
     IF NOT is_user_admin(v_admin_id) THEN RAISE EXCEPTION 'Only admins can reject quotes'; END IF;
     UPDATE public.community_quotes SET status = 'REJECTED', reviewed_at = NOW(), reviewed_by = v_admin_id WHERE id = p_quote_id;
     RETURN FOUND;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Rate chapter
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION rate_chapter(p_chapter_id UUID, p_rating INTEGER)
-RETURNS BOOLEAN AS $
+RETURNS BOOLEAN AS $$
 DECLARE v_user_id UUID; v_existing_rating INTEGER; v_new_avg REAL; v_new_count INTEGER;
 BEGIN
     v_user_id := auth.uid();
@@ -1178,7 +1178,7 @@ BEGIN
     UPDATE public.community_chapters SET rating = v_new_avg, rating_count = v_new_count WHERE id = p_chapter_id;
     RETURN TRUE;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION rate_chapter(UUID, INTEGER) TO authenticated;
 
@@ -1186,18 +1186,18 @@ GRANT EXECUTE ON FUNCTION rate_chapter(UUID, INTEGER) TO authenticated;
 -- Function: Increment book view
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION increment_book_view(p_book_id UUID)
-RETURNS VOID AS $
+RETURNS VOID AS $$
 BEGIN
     UPDATE public.community_books SET view_count = view_count + 1 WHERE id = p_book_id;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION increment_chapter_view(p_chapter_id UUID)
-RETURNS VOID AS $
+RETURNS VOID AS $$
 BEGIN
     UPDATE public.community_chapters SET view_count = view_count + 1 WHERE id = p_chapter_id;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION increment_book_view(UUID) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION increment_chapter_view(UUID) TO anon, authenticated;
@@ -1206,7 +1206,7 @@ GRANT EXECUTE ON FUNCTION increment_chapter_view(UUID) TO anon, authenticated;
 -- Function: Update book metadata (trigger)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION update_book_metadata()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 DECLARE v_chapter_count INTEGER; v_languages TEXT[];
 BEGIN
     SELECT COUNT(*) INTO v_chapter_count FROM public.community_chapters WHERE book_id = COALESCE(NEW.book_id, OLD.book_id);
@@ -1215,41 +1215,41 @@ BEGIN
            last_updated = EXTRACT(EPOCH FROM NOW()) * 1000 WHERE id = COALESCE(NEW.book_id, OLD.book_id);
     RETURN COALESCE(NEW, OLD);
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- ----------------------------------------------------------------------------
 -- Function: Update glossary updated_at
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION update_glossary_updated_at()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- ----------------------------------------------------------------------------
 -- Function: Increment/decrement art likes
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION increment_art_likes(art_id UUID)
-RETURNS VOID AS $
+RETURNS VOID AS $$
 BEGIN
     UPDATE public.character_art SET likes_count = likes_count + 1, updated_at = NOW() WHERE id = art_id;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION decrement_art_likes(art_id UUID)
-RETURNS VOID AS $
+RETURNS VOID AS $$
 BEGIN
     UPDATE public.character_art SET likes_count = GREATEST(0, likes_count - 1), updated_at = NOW() WHERE id = art_id;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
 -- Function: Auto-approve old pending art
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION auto_approve_old_pending_art(days_threshold INTEGER DEFAULT 7)
-RETURNS INTEGER LANGUAGE plpgsql SECURITY DEFINER AS $
+RETURNS INTEGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE approved_count INTEGER;
 BEGIN
     WITH updated AS (
@@ -1260,7 +1260,7 @@ BEGIN
     SELECT COUNT(*) INTO approved_count FROM updated;
     RETURN approved_count;
 END;
-$;
+$$;
 
 GRANT EXECUTE ON FUNCTION auto_approve_old_pending_art(INTEGER) TO authenticated;
 COMMENT ON FUNCTION auto_approve_old_pending_art IS 'Auto-approves pending character art older than specified days. Returns count of approved items.';
@@ -1270,7 +1270,7 @@ COMMENT ON FUNCTION auto_approve_old_pending_art IS 'Auto-approves pending chara
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION admin_get_all_users(p_limit INT DEFAULT 50, p_offset INT DEFAULT 0, p_search TEXT DEFAULT NULL)
 RETURNS TABLE (id UUID, email TEXT, username TEXT, created_at TIMESTAMPTZ, is_admin BOOLEAN, is_supporter BOOLEAN)
-LANGUAGE plpgsql SECURITY DEFINER AS $
+LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
     IF NOT is_user_admin(auth.uid()) THEN RAISE EXCEPTION 'Unauthorized: Admin access required'; END IF;
     RETURN QUERY
@@ -1279,45 +1279,45 @@ BEGIN
     WHERE (p_search IS NULL OR u.email ILIKE '%' || p_search || '%' OR u.username ILIKE '%' || p_search || '%')
     ORDER BY u.created_at DESC LIMIT p_limit OFFSET p_offset;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION admin_get_user_by_id(p_user_id UUID)
 RETURNS TABLE (id UUID, email TEXT, username TEXT, created_at TIMESTAMPTZ, is_admin BOOLEAN, is_supporter BOOLEAN)
-LANGUAGE plpgsql SECURITY DEFINER AS $
+LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
     IF NOT is_user_admin(auth.uid()) THEN RAISE EXCEPTION 'Unauthorized: Admin access required'; END IF;
     RETURN QUERY
     SELECT u.id, u.email, u.username, u.created_at, COALESCE(u.is_admin, FALSE), COALESCE(u.is_supporter, FALSE)
     FROM public.users u WHERE u.id = p_user_id;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION admin_assign_badge_to_user(p_user_id UUID, p_badge_id TEXT)
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
     IF NOT is_user_admin(auth.uid()) THEN RAISE EXCEPTION 'Unauthorized: Admin access required'; END IF;
     IF NOT EXISTS (SELECT 1 FROM public.badges WHERE id = p_badge_id) THEN RAISE EXCEPTION 'Badge not found'; END IF;
     IF EXISTS (SELECT 1 FROM public.user_badges WHERE user_id = p_user_id AND badge_id = p_badge_id) THEN RAISE EXCEPTION 'User already has this badge'; END IF;
     INSERT INTO public.user_badges (user_id, badge_id, earned_at) VALUES (p_user_id, p_badge_id, NOW());
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION admin_remove_badge_from_user(p_user_id UUID, p_badge_id TEXT)
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
     IF NOT is_user_admin(auth.uid()) THEN RAISE EXCEPTION 'Unauthorized: Admin access required'; END IF;
     DELETE FROM public.user_badges WHERE user_id = p_user_id AND badge_id = p_badge_id;
     IF NOT FOUND THEN RAISE EXCEPTION 'User does not have this badge'; END IF;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION admin_send_password_reset(p_email TEXT)
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
     IF NOT is_user_admin(auth.uid()) THEN RAISE EXCEPTION 'Unauthorized: Admin access required'; END IF;
     IF NOT EXISTS (SELECT 1 FROM public.users WHERE email = p_email) THEN RAISE EXCEPTION 'User not found with this email'; END IF;
 END;
-$;
+$$;
 
 GRANT EXECUTE ON FUNCTION admin_get_all_users(INT, INT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_get_user_by_id(UUID) TO authenticated;
@@ -1331,7 +1331,7 @@ GRANT EXECUTE ON FUNCTION admin_send_password_reset(TEXT) TO authenticated;
 CREATE OR REPLACE FUNCTION get_book_reviews_with_badges(p_limit INTEGER DEFAULT 50, p_offset INTEGER DEFAULT 0)
 RETURNS TABLE (id UUID, user_id UUID, book_title TEXT, rating INTEGER, review_text TEXT,
                created_at TIMESTAMP WITH TIME ZONE, username TEXT, badge_id TEXT, badge_name TEXT,
-               badge_icon TEXT, badge_image_url TEXT) AS $
+               badge_icon TEXT, badge_image_url TEXT) AS $$
 BEGIN
     RETURN QUERY
     SELECT br.id, br.user_id, br.book_title, br.rating, br.review_text, br.created_at,
@@ -1342,7 +1342,7 @@ BEGIN
     LEFT JOIN public.badges b ON ub.badge_id = b.id
     ORDER BY br.created_at DESC LIMIT p_limit OFFSET p_offset;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION get_book_reviews_with_badges(INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_book_reviews_with_badges(INTEGER, INTEGER) TO anon;
@@ -1353,7 +1353,7 @@ GRANT EXECUTE ON FUNCTION get_book_reviews_with_badges(INTEGER, INTEGER) TO anon
 CREATE OR REPLACE FUNCTION get_chapter_reviews_with_badges(p_limit INTEGER DEFAULT 50, p_offset INTEGER DEFAULT 0)
 RETURNS TABLE (id UUID, user_id UUID, book_title TEXT, chapter_name TEXT, rating INTEGER,
                review_text TEXT, created_at TIMESTAMP WITH TIME ZONE, username TEXT, badge_id TEXT,
-               badge_name TEXT, badge_icon TEXT, badge_image_url TEXT) AS $
+               badge_name TEXT, badge_icon TEXT, badge_image_url TEXT) AS $$
 BEGIN
     RETURN QUERY
     SELECT cr.id, cr.user_id, cr.book_title, cr.chapter_name, cr.rating, cr.review_text, cr.created_at,
@@ -1364,7 +1364,7 @@ BEGIN
     LEFT JOIN public.badges b ON ub.badge_id = b.id
     ORDER BY cr.created_at DESC LIMIT p_limit OFFSET p_offset;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION get_chapter_reviews_with_badges(INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_chapter_reviews_with_badges(INTEGER, INTEGER) TO anon;
@@ -1373,12 +1373,12 @@ GRANT EXECUTE ON FUNCTION get_chapter_reviews_with_badges(INTEGER, INTEGER) TO a
 -- Function: Update leaderboard updated_at
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION update_leaderboard_updated_at()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 
 -- ============================================================================
@@ -1477,6 +1477,28 @@ GRANT INSERT, UPDATE, DELETE ON public.community_books TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.community_chapters TO authenticated;
 GRANT INSERT, UPDATE ON public.chapter_ratings TO authenticated;
 GRANT INSERT ON public.chapter_reports TO authenticated;
+GRANT SELECT ON public.chapter_reports TO authenticated;
+
+-- Tables with RLS policies below rely on these base grants; RLS alone does not
+-- grant privileges Postgres hasn't already given the role.
+GRANT SELECT, INSERT, UPDATE ON public.users TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.reading_progress TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.synced_books TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.book_reviews TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.chapter_reviews TO authenticated;
+GRANT SELECT ON public.badges TO authenticated;
+GRANT SELECT, UPDATE ON public.user_badges TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.payment_proofs TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.nft_wallets TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.leaderboard TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_quotes TO authenticated;
+GRANT SELECT, INSERT, DELETE ON public.quote_likes TO authenticated;
+GRANT SELECT ON public.daily_quote_history TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.glossary_entries TO authenticated;
+GRANT SELECT, INSERT ON public.community_glossaries TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.character_art TO authenticated;
+GRANT SELECT, INSERT, DELETE ON public.character_art_likes TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.character_art_reports TO authenticated;
 
 -- Enable realtime for leaderboard
 ALTER PUBLICATION supabase_realtime ADD TABLE public.leaderboard;
@@ -1549,7 +1571,7 @@ ON CONFLICT (id) DO NOTHING;
 -- SUCCESS MESSAGE
 -- ============================================================================
 
-DO $
+DO $$
 BEGIN
     RAISE NOTICE '✅ IReader Complete Schema created successfully!';
     RAISE NOTICE '';
@@ -1563,4 +1585,4 @@ BEGIN
     RAISE NOTICE 'Features: Badge system, Leaderboard, Quotes, Community Source, Glossary, Character Art';
     RAISE NOTICE '';
     RAISE NOTICE 'To grant admin: UPDATE public.users SET is_admin = TRUE WHERE email = ''admin@example.com'';';
-END $;
+END $$;
