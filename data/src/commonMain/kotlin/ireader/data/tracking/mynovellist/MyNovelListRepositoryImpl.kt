@@ -211,7 +211,7 @@ class MyNovelListRepositoryImpl(
                 // Add to library
                 val entry = api.addToLibrary(track)
                 if (entry != null) {
-                    track.copy(entryId = entry.id.hashCode().toLong())
+                    track.boundToMyNovelListEntry(entry, api.getBaseUrl())
                 } else null
             } else {
                 track
@@ -230,7 +230,7 @@ class MyNovelListRepositoryImpl(
         return try {
             val track = buildTrackFromBook(bookId, book, sourceUrl, totalChapters)
             val entry = api.addToLibrary(track) ?: return null
-            track.copy(entryId = entry.id.hashCode().toLong())
+            track.boundToMyNovelListEntry(entry, api.getBaseUrl())
         } catch (e: Exception) {
             Log.error(e, "Failed to create and bind book to MyNovelList")
             null
@@ -288,4 +288,15 @@ internal fun buildTrackFromBook(bookId: Long, book: Book, sourceUrl: String, tot
         totalChapters = totalChapters,
         status = TrackStatus.Planned
     ).applyBookMetadata(book)
+}
+
+/**
+ * After create/bind, mediaUrl must point at the MyNovelList novel page (not the book's
+ * external source URL) so future progress pushes can resolve the novel ID via extractNovelId.
+ */
+internal fun Track.boundToMyNovelListEntry(entry: MyNovelListEntry, baseUrl: String): Track {
+    return copy(
+        entryId = entry.id.hashCode().toLong(),
+        mediaUrl = "$baseUrl/novel/${entry.id}"
+    )
 }
