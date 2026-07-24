@@ -13,6 +13,9 @@ on:
         description: 'Previous release tag for changelog (leave empty for auto-detect)'
         required: false
 
+permissions:
+  contents: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -22,28 +25,28 @@ jobs:
     name: Build application packages
     strategy:
       matrix:
-        runtime: [ linux-x64, win-x64, macos-x64, android ]
+        runtime: [ android ] # linux-x64, win-x64, macos-x64 disabled for now
         include:
-          - runtime: linux-x64
-            arch: x64
-            os: ubuntu-latest
-            shell: bash
-            build: :desktop:packageDeb :desktop:packageRpm :desktop:createDistributable
-            setupCl: ./.github/scripts/SetupClUnix.sh
+          # - runtime: linux-x64
+          #   arch: x64
+          #   os: ubuntu-latest
+          #   shell: bash
+          #   build: :desktop:packageDeb :desktop:packageRpm :desktop:createDistributable
+          #   setupCl: ./.github/scripts/SetupClUnix.sh
 
-          - runtime: win-x64
-            arch: x64
-            os: windows-latest
-            shell: powershell
-            build: :desktop:packageMsi :desktop:packageExe
-            setupCl: ./.github/scripts/SetupClWindows.ps1
+          # - runtime: win-x64
+          #   arch: x64
+          #   os: windows-latest
+          #   shell: powershell
+          #   build: :desktop:packageMsi :desktop:packageExe
+          #   setupCl: ./.github/scripts/SetupClWindows.ps1
 
-          - runtime: macos-x64
-            arch: x64
-            os: macos-latest
-            shell: bash
-            build: :desktop:packageDmg
-            setupCl: ./.github/scripts/SetupClUnix.sh
+          # - runtime: macos-x64
+          #   arch: x64
+          #   os: macos-latest
+          #   shell: bash
+          #   build: :desktop:packageDmg
+          #   setupCl: ./.github/scripts/SetupClUnix.sh
 
           - runtime: android
             arch: x64
