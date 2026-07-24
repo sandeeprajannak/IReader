@@ -140,6 +140,12 @@ class SupabaseConfigViewModel(
     fun saveConfiguration() {
         scope.launch {
             try {
+                // Automatically enable useCustomSupabase when saving a non-empty custom config
+                val enableCustom = currentState.authUrl.isNotEmpty() && currentState.authApiKey.isNotEmpty()
+                if (enableCustom) {
+                    supabasePreferences.useCustomSupabase().set(true)
+                }
+
                 // Save all 7 project configurations
                 supabasePreferences.supabaseAuthUrl().set(currentState.authUrl)
                 supabasePreferences.supabaseAuthKey().set(currentState.authApiKey)
@@ -157,8 +163,9 @@ class SupabaseConfigViewModel(
                 supabasePreferences.supabaseAnalyticsKey().set(currentState.analyticsApiKey)
                 supabasePreferences.supabaseCommunityUrl().set(currentState.communityUrl)
                 supabasePreferences.supabaseCommunityKey().set(currentState.communityApiKey)
-                
+
                 updateState { it.copy(
+                    useCustomSupabase = enableCustom || it.useCustomSupabase,
                     testResult = "? Configuration saved successfully! Total storage: 3.5GB",
                     error = null
                 )}

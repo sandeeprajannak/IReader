@@ -2,6 +2,7 @@ package ireader.data.di
 
 import io.github.jan.supabase.SupabaseClient
 import ireader.data.badge.BadgeRepositoryImpl
+import ireader.data.remote.unwrapDynamic
 import ireader.data.review.ReviewRepositoryImpl
 import ireader.domain.data.repository.BadgeRepository
 import ireader.domain.data.repository.ReviewRepository
@@ -16,12 +17,13 @@ val reviewModule = module {
     // Repositories - conditionally provide NoOp singleton implementations
     single<ReviewRepository> {
         val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
-        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+        val unwrapped = provider.unwrapDynamic()
+        if (unwrapped is ireader.data.remote.NoOpSupabaseClientProvider) {
             // Use NoOp singleton when Supabase is not configured
             ireader.data.repository.NoOpReviewRepository
         } else {
             // Use bookReviewsClient which has Auth installed
-            val supabaseClient = (provider as ireader.data.remote.MultiSupabaseClientProvider).bookReviewsClient
+            val supabaseClient = (unwrapped as ireader.data.remote.MultiSupabaseClientProvider).bookReviewsClient
             ReviewRepositoryImpl(
                 handler = get(),
                 supabaseClient = supabaseClient,
@@ -29,14 +31,15 @@ val reviewModule = module {
             )
         }
     }
-    
+
     single<BadgeRepository> {
         val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
-        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+        val unwrapped = provider.unwrapDynamic()
+        if (unwrapped is ireader.data.remote.NoOpSupabaseClientProvider) {
             // Use NoOp singleton when Supabase is not configured
             ireader.data.repository.NoOpBadgeRepository
         } else {
-            val supabaseClient = (provider as ireader.data.remote.MultiSupabaseClientProvider).badgesClient
+            val supabaseClient = (unwrapped as ireader.data.remote.MultiSupabaseClientProvider).badgesClient
             BadgeRepositoryImpl(
                 handler = get(),
                 supabaseClient = supabaseClient,

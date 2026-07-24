@@ -4,6 +4,7 @@ import ireader.data.util.AppDataDirectory
 import ireader.data.database.RepairDatabaseUseCaseImpl
 import ireader.data.plugin.PluginDatabaseImpl
 import ireader.data.plugin.PluginRepositoryImpl
+import ireader.data.remote.unwrapDynamic
 import ireader.data.repository.FundingGoalRepositoryImpl
 import ireader.data.tts.VoiceModelRepositoryImpl
 import ireader.data.repository.PiperVoiceRepositoryImpl
@@ -144,13 +145,14 @@ val repositoryInjectModule = module {
     // Leaderboard repository
     single<ireader.domain.data.repository.LeaderboardRepository> {
         val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
-        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+        val unwrapped = provider.unwrapDynamic()
+        if (unwrapped is ireader.data.remote.NoOpSupabaseClientProvider) {
             // No Supabase configured, use NoOp singleton
             ireader.data.repository.NoOpLeaderboardRepository
         } else {
             try {
                 // Get analytics client from multi-project provider
-                val supabaseClient = (provider as ireader.data.remote.MultiSupabaseClientProvider).analyticsClient
+                val supabaseClient = (unwrapped as ireader.data.remote.MultiSupabaseClientProvider).analyticsClient
                 ireader.data.leaderboard.LeaderboardRepositoryImpl(
                     supabaseClient = supabaseClient,
                     backendService = get()
@@ -165,12 +167,13 @@ val repositoryInjectModule = module {
     // Popular books repository
     single<ireader.domain.data.repository.PopularBooksRepository> {
         val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
-        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+        val unwrapped = provider.unwrapDynamic()
+        if (unwrapped is ireader.data.remote.NoOpSupabaseClientProvider) {
             // No Supabase configured, use NoOp singleton
             ireader.data.repository.NoOpPopularBooksRepository
         } else {
             try {
-                val supabaseClient = (provider as ireader.data.remote.MultiSupabaseClientProvider).libraryClient
+                val supabaseClient = (unwrapped as ireader.data.remote.MultiSupabaseClientProvider).libraryClient
                 ireader.data.popular.PopularBooksRepositoryImpl(
                     supabaseClient = supabaseClient,
                     backendService = get()
@@ -185,12 +188,13 @@ val repositoryInjectModule = module {
     // All reviews repository
     single<ireader.domain.data.repository.AllReviewsRepository> {
         val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
-        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+        val unwrapped = provider.unwrapDynamic()
+        if (unwrapped is ireader.data.remote.NoOpSupabaseClientProvider) {
             // No Supabase configured, use NoOp singleton
             ireader.data.repository.NoOpAllReviewsRepository
         } else {
             try {
-                val supabaseClient = (provider as ireader.data.remote.MultiSupabaseClientProvider).bookReviewsClient
+                val supabaseClient = (unwrapped as ireader.data.remote.MultiSupabaseClientProvider).bookReviewsClient
                 ireader.data.review.AllReviewsRepositoryImpl(
                     supabaseClient = supabaseClient,
                     backendService = get()
@@ -205,13 +209,14 @@ val repositoryInjectModule = module {
     // Donation leaderboard repository
     single<ireader.domain.data.repository.DonationLeaderboardRepository> {
         val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
-        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+        val unwrapped = provider.unwrapDynamic()
+        if (unwrapped is ireader.data.remote.NoOpSupabaseClientProvider) {
             // No Supabase configured, use NoOp singleton
             ireader.data.repository.NoOpDonationLeaderboardRepository
         } else {
             try {
                 // Get analytics client from multi-project provider
-                val supabaseClient = (provider as ireader.data.remote.MultiSupabaseClientProvider).analyticsClient
+                val supabaseClient = (unwrapped as ireader.data.remote.MultiSupabaseClientProvider).analyticsClient
                 ireader.data.donationleaderboard.DonationLeaderboardRepositoryImpl(
                     supabaseClient = supabaseClient,
                     backendService = get()

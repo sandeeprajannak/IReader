@@ -148,17 +148,36 @@ class SupabaseRemoteRepository(
                 table = "users",
                 filters = mapOf("id" to authUser.id)
             ).getOrThrow()
-            
+
+            // Sign-up may have been unable to create the profile row if email
+            // confirmation was required (currentUserOrNull() was null at that point).
+            // Create it now on first successful sign-in instead of failing.
             val userDto = queryResult.firstOrNull()?.let {
                 json.decodeFromJsonElement(UserDto.serializer(), it)
-            } ?: throw Exception("User not found. Please sign in again to continue.")
-            
+            } ?: run {
+                val userData = buildJsonObject {
+                    put("id", authUser.id)
+                    put("email", authUser.email ?: email)
+                    put("is_supporter", false)
+                }
+                // Key on email, not id: an orphaned row from a previously deleted
+                // auth user can still hold this email under a stale id, which would
+                // collide with the users_email_key constraint if we upserted on id.
+                val upserted = backendService.upsert(
+                    table = "users",
+                    data = userData,
+                    onConflict = "email",
+                    returning = true
+                ).getOrThrow() ?: throw Exception("Failed to create user profile after sign in")
+                json.decodeFromJsonElement(UserDto.serializer(), upserted)
+            }
+
             val user = userDto.toDomain()
             currentUser = user
             cache.cacheUser(user)
             user
         }
-    
+
     override suspend fun getCurrentUser(): Result<User?> = RemoteErrorMapper.withErrorMapping {
         cache.getCachedUser() ?: currentUser ?: run {
             val authUser = supabaseClient.auth.currentUserOrNull() ?: return@withErrorMapping null
