@@ -336,6 +336,15 @@ class ExtensionViewModel(
         }
     }
 
+    fun uninstallAllCatalogs() {
+        scope.launch {
+            state.value.allCatalogs.filterIsInstance<CatalogInstalled>().forEach { catalog ->
+                _uninstallCatalog.await(catalog)
+            }
+            refreshCatalogsQuietly()
+        }
+    }
+
     fun cancelCatalogJob(catalog: Catalog) {
         installerJobs[catalog.sourceId]?.cancel()
         installerJobs.remove(catalog.sourceId)

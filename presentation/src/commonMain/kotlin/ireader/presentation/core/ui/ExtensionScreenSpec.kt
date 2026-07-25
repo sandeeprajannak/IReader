@@ -82,6 +82,7 @@ object ExtensionScreenSpec {
         val state by vm.state.collectAsState()
         var searchMode by remember { mutableStateOf(false) }
         var showMigrationSourceDialog by remember { mutableStateOf(false) }
+        var showUninstallAllDialog by remember { mutableStateOf(false) }
         val focusManager = LocalFocusManager.current
         val snackBarHostState = SnackBarListener(vm)
         val navController = requireNotNull(LocalNavigator.current) { "LocalNavigator not provided" }
@@ -97,6 +98,30 @@ object ExtensionScreenSpec {
                     navController.navigateTo(SourceMigrationScreenSpec(sourceId))
                 },
                 onDismiss = { showMigrationSourceDialog = false }
+            )
+        }
+
+        // Uninstall all confirmation dialog
+        if (showUninstallAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showUninstallAllDialog = false },
+                title = { Text(localize(Res.string.uninstall_all)) },
+                text = { Text(localize(Res.string.uninstall_all_confirmation)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showUninstallAllDialog = false
+                            vm.uninstallAllCatalogs()
+                        }
+                    ) {
+                        Text(localize(Res.string.uninstall_all))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUninstallAllDialog = false }) {
+                        Text(localize(Res.string.cancel))
+                    }
+                }
             )
         }
 
@@ -124,6 +149,7 @@ object ExtensionScreenSpec {
                             navController.navigateTo(GlobalSearchScreenSpec())
                         },
                         onMigrate = { showMigrationSourceDialog = true },
+                        onUninstallAll = { showUninstallAllDialog = true },
                         onBrowseSettings = {
                             navController.navigateTo(BrowseSettingsScreenSpec())
                         },

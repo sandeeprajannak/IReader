@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -55,6 +56,7 @@ fun UnifiedSourceTopAppBar(
     onMigrate: (() -> Unit)? = null,
     onAddRepository: (() -> Unit)? = null,
     onBrowseSettings: (() -> Unit)? = null,
+    onUninstallAll: (() -> Unit)? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
     val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
@@ -155,6 +157,23 @@ fun UnifiedSourceTopAppBar(
                         )
                     }
                     
+                    // Uninstall all
+                    if (onUninstallAll != null) {
+                        DropdownMenuItem(
+                            text = { Text(localizeHelper.localize(Res.string.uninstall_all)) },
+                            onClick = {
+                                showOverflowMenu = false
+                                onUninstallAll()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteSweep,
+                                    contentDescription = null
+                                )
+                            }
+                        )
+                    }
+
                     // Migrate
                     if (onMigrate != null) {
                         DropdownMenuItem(
