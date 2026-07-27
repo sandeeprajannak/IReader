@@ -8,6 +8,10 @@ import org.gradle.api.tasks.TaskAction
 import java.util.Properties
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.io.ByteArrayOutputStream
+import org.gradle.internal.jvm.Jvm
+import org.gradle.process.ExecOperations
+import javax.inject.Inject
 
 
 plugins {
@@ -206,6 +210,85 @@ val isPreview: Boolean
     get() = project.hasProperty("preview")
 val previewCode: String
     get() = project.properties["preview"]?.toString()?.trim('"') ?: 0.toString()
+
+// Corporate networks MITM-inspect TLS with their own root CA, which is installed
+// into the macOS System keychain but not into the JVM's bundled cacerts truststore (the JVM never
+// consults the OS keychain). Without this, every HTTPS request the packaged app makes fails with
+// "PKIX path building failed" while on such a network. This imports whatever admin/MDM-installed
+// CAs are in /Library/Keychains/System.keychain directly into the packaged runtime's cacerts.
+abstract class ImportSystemTrustedCertsTask : DefaultTask() {
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val appImageDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val appBundle = appImageDir.get().asFile.listFiles { f -> f.extension == "app" }?.firstOrNull()
+            ?: run {
+                logger.warn("ImportSystemTrustedCertsTask: no .app bundle found under ${appImageDir.get().asFile}, skipping")
+                return
+            }
+        val cacerts = appBundle.resolve("Contents/runtime/Contents/Home/lib/security/cacerts")
+        if (!cacerts.exists()) {
+            logger.warn("ImportSystemTrustedCertsTask: cacerts not found at $cacerts, skipping")
+            return
+        }
+
+        val exportedPem = ByteArrayOutputStream()
+        execOperations.exec {
+            commandLine("security", "find-certificate", "-a", "-p", "/Library/Keychains/System.keychain")
+            standardOutput = exportedPem
+        }
+
+        val certBlocks = Regex(
+            "-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----",
+            RegexOption.DOT_MATCHES_ALL
+        ).findAll(exportedPem.toString(Charsets.UTF_8)).map { it.value }.toList()
+
+        if (certBlocks.isEmpty()) {
+            logger.warn("ImportSystemTrustedCertsTask: no certificates found in System.keychain, skipping")
+            return
+        }
+
+        val keytool = Jvm.current().javaHome.resolve("bin/keytool")
+        var imported = 0
+        certBlocks.forEachIndexed { index, certPem ->
+            val certFile = temporaryDir.resolve("system-root-$index.pem")
+            certFile.writeText(certPem)
+            val result = execOperations.exec {
+                isIgnoreExitValue = true
+                commandLine(
+                    keytool.absolutePath, "-importcert",
+                    "-alias", "corp-system-root-$index",
+                    "-keystore", cacerts.absolutePath,
+                    "-storepass", "changeit",
+                    "-file", certFile.absolutePath,
+                    "-noprompt"
+                )
+                standardOutput = ByteArrayOutputStream()
+                errorOutput = ByteArrayOutputStream()
+            }
+            if (result.exitValue == 0) imported++
+        }
+        logger.lifecycle("ImportSystemTrustedCertsTask: imported $imported/${certBlocks.size} certs from System.keychain into $cacerts")
+    }
+}
+
+if (System.getProperty("os.name").lowercase().contains("mac")) {
+    afterEvaluate {
+        tasks.register<ImportSystemTrustedCertsTask>("importSystemTrustedCerts") {
+            dependsOn("createDistributable")
+            appImageDir.set(layout.buildDirectory.dir("compose/binaries/main/app"))
+        }
+        tasks.named("createDistributable") {
+            finalizedBy("importSystemTrustedCerts")
+        }
+        tasks.findByName("packageDmg")?.dependsOn("importSystemTrustedCerts")
+    }
+}
 
 // Add dependencies for package tasks
 listOf(
