@@ -146,9 +146,7 @@ class RepositoryScreenSpec {
                             Row {
                                 if(source.id >= 0) {
                                     AppIconButton(onClick = {
-                                        vm.scope.launch {
-                                            vm.catalogSourceRepository.delete(source)
-                                        }
+                                        vm.deleteRepository(source)
                                     }, imageVector = Icons.Default.DeleteForever)
                                 }
                                 Switch(

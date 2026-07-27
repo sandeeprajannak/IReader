@@ -73,6 +73,8 @@ class SourceRepositoryViewModel(
     fun deleteRepository(source: ExtensionSource) {
         scope.launch {
             catalogSourceRepository.delete(source)
+            // Purge/rebuild the cached remote catalog list from the remaining repositories
+            triggerDebouncedAutoFetch()
         }
     }
     
