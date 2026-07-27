@@ -10,7 +10,8 @@ import io.ktor.client.statement.request
 inline fun <reified T> Iterable<*>.findInstance() = find { it is T } as? T
 
 suspend fun HttpResponse.asJsoup(html: String? = null): Document {
-    return Ksoup.parse(html ?: this.bodyAsText(), request.url.toString())
+    val text = html ?: this.bodyAsText()
+    return Ksoup.parse(text, request.url.toString())
 }
 
 fun String.asJsoup(html: String? = null): Document {

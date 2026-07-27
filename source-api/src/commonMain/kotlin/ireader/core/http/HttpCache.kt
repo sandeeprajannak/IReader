@@ -50,17 +50,21 @@ class HttpCache(
     private val cache = mutableMapOf<String, CacheEntry>()
     private val mutex = Mutex()
     
-    suspend fun get(key: String): CacheEntry? = mutex.withLock {
-        val entry = cache[key]
-        if (entry != null && entry.isExpired()) {
-            cache.remove(key)
-            return@withLock null
+    suspend fun get(key: String): CacheEntry? {
+        return mutex.withLock {
+            val entry = cache[key]
+            if (entry != null && entry.isExpired()) {
+                cache.remove(key)
+                return@withLock null
+            }
+            entry
         }
-        entry
     }
-    
-    suspend fun put(key: String, entry: CacheEntry) = mutex.withLock {
-        cache[key] = entry
+
+    suspend fun put(key: String, entry: CacheEntry) {
+        mutex.withLock {
+            cache[key] = entry
+        }
     }
     
     suspend fun clear() = mutex.withLock {

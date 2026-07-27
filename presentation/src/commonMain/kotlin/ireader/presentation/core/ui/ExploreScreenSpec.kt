@@ -58,7 +58,15 @@ data class ExploreScreenSpec(
         val vm: ExploreViewModel = remember(sourceId, query) {
             koin.get<ExploreViewModel>(parameters = { parametersOf(ExploreViewModel.Param(sourceId, query)) })
         }
-        
+        // This VM isn't owned by a ViewModelStore, so nothing cancels its coroutine scope when
+        // this screen leaves composition. Without this, a leaked in-flight load from a previous
+        // visit can keep holding shared source-loading resources, stalling the next visit's load.
+        androidx.compose.runtime.DisposableEffect(vm) {
+            onDispose {
+                vm.onDestroy()
+            }
+        }
+
         // Collect state as Compose state for efficient recomposition
         val state by vm.state.collectAsState()
         

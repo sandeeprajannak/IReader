@@ -229,11 +229,11 @@ class ExploreViewModel(
     fun loadItems(reset: Boolean = false) {
         // Cancel any existing load job
         loadJob?.cancel()
-        
+
         if (reset) {
             // Reset pagination state
             seenBooks.clear()
-            _state.update { 
+            _state.update {
                 it.copy(
                     page = 1,
                     books = emptyList(),
@@ -242,14 +242,14 @@ class ExploreViewModel(
                 )
             }
         }
-        
+
         loadJob = scope.launch {
             val currentState = _state.value
             val catalog = currentState.catalog ?: return@launch
-            
+
             // Set loading state
             _state.update { it.copy(isLoading = true, error = null) }
-            
+
             try {
                 val result = fetchBooks(
                     catalog = catalog,
@@ -258,10 +258,12 @@ class ExploreViewModel(
                     filters = currentState.appliedFilters,
                     page = currentState.page
                 )
-                
+
                 // Check if job was cancelled during fetch
-                if (!isActive) return@launch
-                
+                if (!isActive) {
+                    return@launch
+                }
+
                 result.fold(
                     onSuccess = { pageInfo ->
                         processSuccessResult(pageInfo)
@@ -455,7 +457,9 @@ class ExploreViewModel(
             "ssl", "certificate",
             "dns", "resolve",
             "refused", "reset",
-            "interrupted", "abort"
+            "interrupted", "abort",
+            "429", "too many requests", "rate limit",
+            "502", "503", "504"
         )
         
         // Check if it's a network error first

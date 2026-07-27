@@ -15,34 +15,14 @@ import io.ktor.util.date.GMTDate
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.InternalAPI
 import ireader.core.util.currentTimeMillis
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 
-/**
- * Configuration for HTTP cache plugin
- */
 class HttpCacheConfig {
-    /**
-     * Default cache duration in milliseconds (5 minutes)
-     */
     var cacheDurationMs: Long = 5 * 60 * 1000
-    
-    /**
-     * Whether to cache responses (can be disabled globally)
-     */
     var enabled: Boolean = true
-    
-    /**
-     * HTTP methods to cache (default: GET only)
-     */
     var cacheableMethods: Set<HttpMethod> = setOf(HttpMethod.Get)
-    
-    /**
-     * Status codes to cache (default: 200 OK only)
-     */
     var cacheableStatusCodes: Set<HttpStatusCode> = setOf(HttpStatusCode.OK)
-    
-    /**
-     * Predicate to determine if a request should be cached
-     */
     var shouldCache: (HttpRequestBuilder) -> Boolean = { true }
 }
 
@@ -57,38 +37,44 @@ val HttpCachePlugin = createClientPlugin("HttpCachePlugin", ::HttpCacheConfig) {
     on(Send) { request ->
         // Check for per-request cache control
         val cacheControl = request.attributes.getOrNull(CacheControlAttribute)
-        
+
         // Check if caching is enabled and method is cacheable
-        if (!pluginConfig.enabled || 
+        if (!pluginConfig.enabled ||
             request.method !in pluginConfig.cacheableMethods ||
             !pluginConfig.shouldCache(request) ||
             cacheControl?.useCache == false) {
             return@on proceed(request)
         }
-        
+
         // Generate cache key
         val cacheKey = cache.generateKey(request.url.toString(), request.method)
-        
+
         // Try to get from cache (unless force refresh)
         if (cacheControl?.forceRefresh != true) {
             val cachedEntry = cache.get(cacheKey)
             if (cachedEntry != null) {
-                // Return cached response as HttpClientCall
+                // Give this synthetic call its own child Job under the client's scope, rather than
+                // reusing request.executionContext (too short-lived for a redirect follow-up
+                // sub-request, causing an indefinite hang) or the client's own coroutineContext
+                // directly (Ktor completes/cancels a call's callContext Job when that call finishes
+                // reading its response — reusing the client's Job here would tear down the client's
+                // root Job on first use, killing every subsequent request through it).
+                val callContext = client.coroutineContext + SupervisorJob(client.coroutineContext[Job])
                 val responseData = HttpResponseData(
                     statusCode = cachedEntry.statusCode,
                     requestTime = GMTDate(),
                     headers = cachedEntry.headers,
                     version = HttpProtocolVersion.HTTP_1_1,
                     body = ByteReadChannel(cachedEntry.response),
-                    callContext = request.executionContext
+                    callContext = callContext
                 )
                 return@on HttpClientCall(client, request.build(), responseData)
             }
         }
-        
+
         // Proceed with actual request
         val call = proceed(request)
-        
+
         // Cache response if status code is cacheable
         if (call.response.status in pluginConfig.cacheableStatusCodes) {
             try {
