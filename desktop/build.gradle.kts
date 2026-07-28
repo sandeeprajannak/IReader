@@ -223,16 +223,25 @@ abstract class ImportSystemTrustedCertsTask : DefaultTask() {
 
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.NONE)
+    @get:org.gradle.api.tasks.Optional
     abstract val appImageDir: DirectoryProperty
+
+    @get:org.gradle.api.tasks.OutputFile
+    @get:org.gradle.api.tasks.Optional
+    abstract val cacertsFile: org.gradle.api.file.RegularFileProperty
 
     @TaskAction
     fun run() {
-        val appBundle = appImageDir.get().asFile.listFiles { f -> f.extension == "app" }?.firstOrNull()
-            ?: run {
-                logger.warn("ImportSystemTrustedCertsTask: no .app bundle found under ${appImageDir.get().asFile}, skipping")
-                return
-            }
-        val cacerts = appBundle.resolve("Contents/runtime/Contents/Home/lib/security/cacerts")
+        val cacerts = if (cacertsFile.isPresent) {
+            cacertsFile.get().asFile
+        } else {
+            val appBundle = appImageDir.get().asFile.listFiles { f -> f.extension == "app" }?.firstOrNull()
+                ?: run {
+                    logger.warn("ImportSystemTrustedCertsTask: no .app bundle found under ${appImageDir.get().asFile}, skipping")
+                    return
+                }
+            appBundle.resolve("Contents/runtime/Contents/Home/lib/security/cacerts")
+        }
         if (!cacerts.exists()) {
             logger.warn("ImportSystemTrustedCertsTask: cacerts not found at $cacerts, skipping")
             return
@@ -288,6 +297,32 @@ if (System.getProperty("os.name").lowercase().contains("mac")) {
             finalizedBy("importSystemTrustedCerts")
         }
         tasks.findByName("packageDmg")?.dependsOn("importSystemTrustedCerts")
+
+        // `:desktop:run` launches against the plain system JDK's cacerts, not the packaged
+        // runtime's cacerts that importSystemTrustedCerts patches above - so on a corporate
+        // network with a MITM-inspecting root CA (e.g. Zscaler), HTTPS requests made via
+        // `run` fail the TLS handshake (connection reset) even though the packaged app works.
+        // Build a private copy of cacerts with the System keychain's CAs imported and point
+        // the run task's JVM at it.
+        val devTrustStoreDir = layout.buildDirectory.dir("dev-truststore")
+        val copyDevCacerts = tasks.register<Copy>("copyDevCacerts") {
+            from(Jvm.current().javaHome.resolve("lib/security/cacerts"))
+            into(devTrustStoreDir)
+        }
+        val importDevTrustedCerts = tasks.register<ImportSystemTrustedCertsTask>("importDevTrustedCerts") {
+            dependsOn(copyDevCacerts)
+            cacertsFile.set(devTrustStoreDir.map { it.file("cacerts") })
+        }
+        tasks.findByName("run")?.let { runTask ->
+            runTask.dependsOn(importDevTrustedCerts)
+            if (runTask is JavaExec) {
+                val cacertsPath = devTrustStoreDir.get().asFile.resolve("cacerts").absolutePath
+                runTask.jvmArgs(
+                    "-Djavax.net.ssl.trustStore=$cacertsPath",
+                    "-Djavax.net.ssl.trustStorePassword=changeit"
+                )
+            }
+        }
     }
 }
 
