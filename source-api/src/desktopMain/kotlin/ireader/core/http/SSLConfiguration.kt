@@ -43,15 +43,22 @@ actual class SSLConfiguration {
             builder.hostnameVerifier { _, _ -> true }
         }
         
-        val connectionSpec = ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
-            .tlsVersions(
-                when (minTlsVersion) {
+        // "Minimum" TLS version means this version or newer should be accepted, not
+        // restricted to exactly this one version - excluding TLS 1.3 makes the
+        // handshake look non-browser-like to anti-bot edges (e.g. DDoS-Guard,
+        // Cloudflare) that reset TLS-1.2-only connections.
+        val acceptableVersions = TlsVersion.entries
+            .filter { it.ordinal >= minTlsVersion.ordinal }
+            .map {
+                when (it) {
                     TlsVersion.TLS_1_0 -> OkHttpTlsVersion.TLS_1_0
                     TlsVersion.TLS_1_1 -> OkHttpTlsVersion.TLS_1_1
                     TlsVersion.TLS_1_2 -> OkHttpTlsVersion.TLS_1_2
                     TlsVersion.TLS_1_3 -> OkHttpTlsVersion.TLS_1_3
                 }
-            )
+            }
+        val connectionSpec = ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
+            .tlsVersions(*acceptableVersions.toTypedArray())
             .build()
         
         builder.connectionSpecs(listOf(connectionSpec, ConnectionSpec.CLEARTEXT))
