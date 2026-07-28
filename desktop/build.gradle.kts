@@ -163,7 +163,8 @@ compose.desktop {
                 "java.sql",
                 "java.xml",
                 "jdk.crypto.ec",
-                "jdk.unsupported"
+                "jdk.unsupported",
+                "jdk.zipfs"
             )
             
             description = "IReader"
