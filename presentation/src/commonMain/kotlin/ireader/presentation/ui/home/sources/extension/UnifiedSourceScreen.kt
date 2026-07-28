@@ -536,7 +536,7 @@ private fun AvailableSourcesContent(
         NoRepositoryStateView(
             onAddRepository = onNavigateToAddRepository
         )
-    } else if (hasNoRemoteSources) {
+    } else if (hasNoRemoteSources && allCatalogs.isEmpty()) {
         EmptyStateView(
             icon = Icons.Default.Extension,
             title = localizeHelper.localize(Res.string.no_extensions_available),
