@@ -74,6 +74,17 @@ jobs:
       - name: Setup Cl
         run: ${{ matrix.setupCl }}
 
+      - name: Set release version
+        run: |
+          VERSION_NAME="${RELEASE_TAG#v}"
+          VERSION_CODE="${{ github.run_number }}"
+          sed -i.bak -E "s/const val versionName = \"[^\"]*\"(.*)/const val versionName = \"${VERSION_NAME}\"\1/" buildSrc/src/main/kotlin/ProjectConfig.kt
+          sed -i.bak -E "s/const val versionCode = [0-9]+/const val versionCode = ${VERSION_CODE}/" buildSrc/src/main/kotlin/ProjectConfig.kt
+          rm -f buildSrc/src/main/kotlin/ProjectConfig.kt.bak
+          cat buildSrc/src/main/kotlin/ProjectConfig.kt
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release-tag }}
+
       - name: Build
         uses: gradle/gradle-build-action@v2
         env:
@@ -386,7 +397,7 @@ jobs:
       - uses: ncipollo/release-action@v1
         with:
           artifacts: "*/binaries/main/*/*.*,*/jars/*.jar,**/IReader-*.apk,**/*.tar.gz,**/*.sha256"
-          draft: true
+          draft: false
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
           replacesArtifacts: true
