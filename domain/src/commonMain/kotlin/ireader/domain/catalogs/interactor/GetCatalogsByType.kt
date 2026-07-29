@@ -20,9 +20,10 @@ class GetCatalogsByType(
         excludeRemoteInstalled: Boolean = false,
         withNsfw: Boolean = true,
         repositoryType: String? = null, // Filter by repository type
+        allowedPkgNames: Set<String>? = null, // Restrict remote catalogs to a specific set of pkgNames
     ): Flow<Catalogs> {
         val localFlow = localCatalogs.subscribe(sort)
-        val remoteFlow = remoteCatalogs.subscribe(withNsfw = withNsfw, repositoryType = repositoryType)
+        val remoteFlow = remoteCatalogs.subscribe(withNsfw = withNsfw, repositoryType = repositoryType, allowedPkgNames = allowedPkgNames)
         return localFlow.combine(remoteFlow) { local, remote ->
             val (pinned, unpinned) = local
                 .sortedByDescending { it.hasUpdate }

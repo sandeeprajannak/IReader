@@ -18,6 +18,7 @@ class GetRemoteCatalogs(
     fun subscribe(
         withNsfw: Boolean = true,
         repositoryType: String? = null, // Filter by repository type
+        allowedPkgNames: Set<String>? = null, // Restrict to a specific set of pkgNames, if given
     ): Flow<List<CatalogRemote>> {
         return catalogRemoteRepository.getRemoteCatalogsFlow()
             .map { catalogs ->
@@ -26,14 +27,18 @@ class GetRemoteCatalogs(
                 } else {
                     catalogs.filter { !it.nsfw }
                 }
-                
+
                 // Filter by repository type if specified
                 if (repositoryType != null) {
                     filteredCatalogs = filteredCatalogs.filter { catalog ->
                         catalog.repositoryType.equals(repositoryType, ignoreCase = true)
                     }
                 }
-                
+
+                if (allowedPkgNames != null) {
+                    filteredCatalogs = filteredCatalogs.filter { it.pkgName in allowedPkgNames }
+                }
+
                 filteredCatalogs
             }
     }

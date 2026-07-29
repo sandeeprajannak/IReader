@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import ireader.core.log.Log
 import ireader.core.os.InstallStep
+import ireader.domain.catalogs.AllowedRemoteSources
 import ireader.domain.catalogs.CatalogStore
 import ireader.domain.catalogs.interactor.ExtensionManager
 import ireader.domain.catalogs.interactor.ExtensionRepositoryManager
@@ -188,7 +189,11 @@ class ExtensionViewModel(
         scope.launch {
             snapshotFlow { _state.value.selectedRepositoryType }
                 .flatMapConcat { repoType ->
-                    getCatalogsByType.subscribe(excludeRemoteInstalled = true, repositoryType = repoType)
+                    getCatalogsByType.subscribe(
+                        excludeRemoteInstalled = true,
+                        repositoryType = repoType,
+                        allowedPkgNames = AllowedRemoteSources.PKG_NAMES,
+                    )
                 }
                 .collect { catalogs ->
                     val choices = getLanguageChoices(catalogs.remote, catalogs.pinned + catalogs.unpinned)
