@@ -5,7 +5,7 @@ object ProjectConfig {
     const val targetSdk = 37
     const val compileSdk = 37
     const val ndk = "21.3.6528147"
-    const val versionName = "2.0.23"  // Changed from 0.1.44 to meet DMG packaging requirements (MAJOR > 0)
+    const val versionName = "1.1.2"  // MAJOR must stay > 0 for DMG packaging
     const val versionCode = 77
     const val applicationId = "ir.kazemcodes.infinityreader"
 
